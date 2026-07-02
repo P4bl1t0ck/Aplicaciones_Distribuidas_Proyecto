@@ -1,0 +1,10 @@
+{
+  "name": "common",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "amqplib": "^0.10.3",
+    "socket.io-client": "^4.7.4",
+    "dotenv": "^16.4.5"
+  }
+}

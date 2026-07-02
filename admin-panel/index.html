@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QuitoQuest – Plataforma Distribuida de Turismo Gamificado</title>
+    <meta name="description" content="QuitoQuest es una plataforma inteligente y distribuida para gamificar la experiencia turística de Quito mediante microservicios, geolocalización y recompensas reales." />
+    <meta name="keywords" content="QuitoQuest, turismo, Quito, gamificación, microservicios, sistemas distribuidos, Ecuador" />
+    <meta name="author" content="Montalvo Pablo, Saa Patricio, Moreta Carlos, Cevallos Josué, Cahueñas Alexander" />
+    <!-- Tailwind CSS CDN for utility classes -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              title: ['Outfit', 'sans-serif'],
+              body: ['Plus Jakarta Sans', 'sans-serif']
+            },
+            colors: {
+              'brand': '#e11d48',
+              'accent': '#06b6d4'
+            },
+            animation: {
+              'spin-slow': 'spin 8s linear infinite',
+              'slide-in': 'slideIn 0.3s ease-out'
+            },
+            keyframes: {
+              slideIn: {
+                '0%': { opacity: '0', transform: 'translateX(20px)' },
+                '100%': { opacity: '1', transform: 'translateX(0)' }
+              }
+            }
+          }
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

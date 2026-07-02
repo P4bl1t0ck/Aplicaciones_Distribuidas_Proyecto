@@ -1,0 +1,32 @@
+{
+  "name": "quitoquest-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QuitoQuest - Distributed Gamified Tourism Platform for Quito",
+  "workspaces": [
+    "backend/common",
+    "backend/gateway",
+    "backend/services/*",
+    "admin-panel"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "dev:gateway": "npm run dev --workspace=backend/gateway",
+    "dev:auth": "npm run dev --workspace=backend/services/auth-service",
+    "dev:user": "npm run dev --workspace=backend/services/user-service",
+    "dev:geo": "npm run dev --workspace=backend/services/geo-service",
+    "dev:events": "npm run dev --workspace=backend/services/events-service",
+    "dev:gamification": "npm run dev --workspace=backend/services/gamification-service",
+    "dev:reward": "npm run dev --workspace=backend/services/reward-service",
+    "dev:notification": "npm run dev --workspace=backend/services/notification-service",
+    "dev:recommendation": "npm run dev --workspace=backend/services/recommendation-service",
+    "dev:analytics": "npm run dev --workspace=backend/services/analytics-service",
+    "dev:broker": "npm run dev --workspace=backend/services/broker-service",
+    "dev:admin": "npm run dev --workspace=admin-panel",
+    "start:all": "concurrently --kill-others \"npm run dev:broker\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:geo\" \"npm run dev:events\" \"npm run dev:gamification\" \"npm run dev:reward\" \"npm run dev:notification\" \"npm run dev:recommendation\" \"npm run dev:analytics\" \"npm run dev:gateway\" \"npm run dev:admin\"",
+    "start:backend": "concurrently --kill-others \"npm run dev:broker\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:geo\" \"npm run dev:events\" \"npm run dev:gamification\" \"npm run dev:reward\" \"npm run dev:notification\" \"npm run dev:recommendation\" \"npm run dev:analytics\" \"npm run dev:gateway\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
