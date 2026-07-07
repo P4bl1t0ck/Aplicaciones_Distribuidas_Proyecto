@@ -10,14 +10,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'quitoquest_super_secret_key_2026';
 
 // Define target ports for services
 const SERVICES = {
-  auth: 'http://localhost:3001',
-  user: 'http://localhost:3002',
-  geo: 'http://localhost:3003',
-  events: 'http://localhost:3004',
-  gamification: 'http://localhost:3005',
-  reward: 'http://localhost:3006',
-  recommendation: 'http://localhost:3008',
-  analytics: 'http://localhost:3009'
+  auth: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+  user: process.env.USER_SERVICE_URL || 'http://localhost:3002',
+  geo: process.env.GEO_SERVICE_URL || 'http://localhost:3003',
+  events: process.env.EVENTS_SERVICE_URL || 'http://localhost:3004',
+  gamification: process.env.GAMIFICATION_SERVICE_URL || 'http://localhost:3005',
+  reward: process.env.REWARD_SERVICE_URL || 'http://localhost:3006',
+  recommendation: process.env.RECOMMENDATION_SERVICE_URL || 'http://localhost:3008',
+  analytics: process.env.ANALYTICS_SERVICE_URL || 'http://localhost:3009'
 };
 
 // Middleware: Authenticate and decode JWT, injecting headers to downstream microservices
@@ -48,6 +48,14 @@ const authenticateGateway = (req, res, next) => {
   });
 };
 
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    gateway: 'active',
+    routesRegistered: Object.keys(SERVICES)
+  });
+});
+
 // Apply JWT verification middleware globally
 app.use(authenticateGateway);
 
@@ -76,14 +84,6 @@ app.use('/api/v1/gamification', proxy(SERVICES.gamification));
 app.use('/api/v1/rewards', proxy(SERVICES.reward));
 app.use('/api/v1/recommendations', proxy(SERVICES.recommendation));
 app.use('/api/v1/analytics', proxy(SERVICES.analytics));
-
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    gateway: 'active',
-    routesRegistered: Object.keys(SERVICES)
-  });
-});
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {

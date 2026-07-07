@@ -23,6 +23,7 @@
     "dev:analytics": "npm run dev --workspace=backend/services/analytics-service",
     "dev:broker": "npm run dev --workspace=backend/services/broker-service",
     "dev:admin": "npm run dev --workspace=admin-panel",
+    "dev:panel": "npm run dev --workspace=admin-panel",
     "start:all": "concurrently --kill-others \"npm run dev:broker\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:geo\" \"npm run dev:events\" \"npm run dev:gamification\" \"npm run dev:reward\" \"npm run dev:notification\" \"npm run dev:recommendation\" \"npm run dev:analytics\" \"npm run dev:gateway\" \"npm run dev:admin\"",
     "start:backend": "concurrently --kill-others \"npm run dev:broker\" \"npm run dev:auth\" \"npm run dev:user\" \"npm run dev:geo\" \"npm run dev:events\" \"npm run dev:gamification\" \"npm run dev:reward\" \"npm run dev:notification\" \"npm run dev:recommendation\" \"npm run dev:analytics\" \"npm run dev:gateway\""
   },
