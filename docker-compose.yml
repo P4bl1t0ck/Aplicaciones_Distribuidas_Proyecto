@@ -1,0 +1,327 @@
+version: '3.8'
+
+networks:
+  quitoquest-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+
+services:
+  # =============================================
+  # DATABASES & BROKERS (Infrastructure Layer)
+  # =============================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: quitoquest-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: quitoquest
+      POSTGRES_USER: quitoquest
+      POSTGRES_PASSWORD: QuitoQuest2026!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - quitoquest-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quitoquest"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:6.0
+    container_name: quitoquest-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - quitoquest-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: quitoquest-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - quitoquest-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: quitoquest-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: quitoquest
+      RABBITMQ_DEFAULT_PASS: QuitoQuest2026!
+    ports:
+      - "5672:5672"
+      - "15672:15672"   # RabbitMQ Management UI
+    networks:
+      - quitoquest-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # =============================================
+  # MICROSERVICES (Core Business Logic Layer)
+  # =============================================
+
+  broker-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/broker-service/Dockerfile
+    container_name: quitoquest-broker
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    networks:
+      - quitoquest-network
+    environment:
+      PORT: 5000
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/auth-service/Dockerfile
+    container_name: quitoquest-auth
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    networks:
+      - quitoquest-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      DATABASE_URL: postgresql://quitoquest:QuitoQuest2026!@postgres:5432/quitoquest
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+      JWT_SECRET: quitoquest_super_secret_key_2026_production
+
+  user-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/user-service/Dockerfile
+    container_name: quitoquest-user
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    networks:
+      - quitoquest-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3002
+      DATABASE_URL: postgresql://quitoquest:QuitoQuest2026!@postgres:5432/quitoquest
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+
+  geo-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/geo-service/Dockerfile
+    container_name: quitoquest-geo
+    restart: unless-stopped
+    ports:
+      - "3003:3003"
+    networks:
+      - quitoquest-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3003
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+
+  events-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/events-service/Dockerfile
+    container_name: quitoquest-events
+    restart: unless-stopped
+    ports:
+      - "3004:3004"
+    networks:
+      - quitoquest-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3004
+      MONGO_URL: mongodb://mongodb:27017/quitoquest
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+
+  gamification-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/gamification-service/Dockerfile
+    container_name: quitoquest-gamification
+    restart: unless-stopped
+    ports:
+      - "3005:3005"
+    networks:
+      - quitoquest-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3005
+      DATABASE_URL: postgresql://quitoquest:QuitoQuest2026!@postgres:5432/quitoquest
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+
+  reward-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/reward-service/Dockerfile
+    container_name: quitoquest-reward
+    restart: unless-stopped
+    ports:
+      - "3006:3006"
+    networks:
+      - quitoquest-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3006
+      DATABASE_URL: postgresql://quitoquest:QuitoQuest2026!@postgres:5432/quitoquest
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/notification-service/Dockerfile
+    container_name: quitoquest-notification
+    restart: unless-stopped
+    ports:
+      - "3007:3007"
+    networks:
+      - quitoquest-network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3007
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+      BROKER_URL: http://broker-service:5000
+
+  recommendation-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/recommendation-service/Dockerfile
+    container_name: quitoquest-recommendation
+    restart: unless-stopped
+    ports:
+      - "3008:3008"
+    networks:
+      - quitoquest-network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3008
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: ./backend/services/analytics-service/Dockerfile
+    container_name: quitoquest-analytics
+    restart: unless-stopped
+    ports:
+      - "3009:3009"
+    networks:
+      - quitoquest-network
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      PORT: 3009
+      RABBITMQ_URL: amqp://quitoquest:QuitoQuest2026!@rabbitmq:5672
+
+  # =============================================
+  # API GATEWAY (Entry Point)
+  # =============================================
+
+  gateway:
+    build:
+      context: .
+      dockerfile: ./backend/gateway/Dockerfile
+    container_name: quitoquest-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - quitoquest-network
+    depends_on:
+      - auth-service
+      - user-service
+      - geo-service
+      - events-service
+      - gamification-service
+      - reward-service
+      - recommendation-service
+      - analytics-service
+    environment:
+      PORT: 8000
+      JWT_SECRET: quitoquest_super_secret_key_2026_production
+      AUTH_SERVICE_URL: http://auth-service:3001
+      USER_SERVICE_URL: http://user-service:3002
+      GEO_SERVICE_URL: http://geo-service:3003
+      EVENTS_SERVICE_URL: http://events-service:3004
+      GAMIFICATION_SERVICE_URL: http://gamification-service:3005
+      REWARD_SERVICE_URL: http://reward-service:3006
+      RECOMMENDATION_SERVICE_URL: http://recommendation-service:3008
+      ANALYTICS_SERVICE_URL: http://analytics-service:3009
+
+  # =============================================
+  # MONITORING (Observability Layer)
+  # =============================================
+
+  rabbitmq-management:
+    # RabbitMQ Management UI is included in the rabbitmq service above (port 15672)
+    # Access at: http://localhost:15672 with user/pass: quitoquest/QuitoQuest2026!
+    profiles:
+      - monitoring
+    image: alpine
+    command: ["echo", "RabbitMQ Management is at http://localhost:15672"]
+    networks:
+      - quitoquest-network
