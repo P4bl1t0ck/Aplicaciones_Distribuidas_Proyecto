@@ -29,9 +29,12 @@ class UserProfileRepository {
   async createOrUpdate(userId, profileData) {
     const profiles = await this._read();
     let index = profiles.findIndex(p => p.userId === userId);
+    const cleanProfileData = Object.fromEntries(
+      Object.entries(profileData).filter(([, value]) => value !== undefined)
+    );
     
     if (index >= 0) {
-      profiles[index] = { ...profiles[index], ...profileData, updatedAt: new Date().toISOString() };
+      profiles[index] = { ...profiles[index], ...cleanProfileData, updatedAt: new Date().toISOString() };
     } else {
       profiles.push({
         userId,
@@ -40,7 +43,7 @@ class UserProfileRepository {
         bio: '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        ...profileData
+        ...cleanProfileData
       });
       index = profiles.length - 1;
     }

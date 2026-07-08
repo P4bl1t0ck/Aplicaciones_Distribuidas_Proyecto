@@ -8,7 +8,12 @@ class AuthController {
         return res.status(400).json({ success: false, message: 'Todos los campos son obligatorios.' });
       }
       const user = await authService.register({ username, email, password });
-      return res.status(201).json({ success: true, user });
+      return res.status(201).json({
+        success: true,
+        message: 'Usuario registrado exitosamente.',
+        userId: user.id,
+        user
+      });
     } catch (err) {
       return res.status(400).json({ success: false, message: err.message });
     }

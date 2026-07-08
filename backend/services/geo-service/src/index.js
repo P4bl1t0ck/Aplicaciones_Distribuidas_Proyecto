@@ -7,50 +7,48 @@ app.use(cors());
 app.use(express.json());
 
 const eventBus = new EventBus('geo-service');
-eventBus.connect();
+const eventBusReady = eventBus.connect();
 
-// Hardcoded Points of Interest in Quito
 const POIS = [
   {
     id: 'plaza_grande',
     name: 'Plaza de la Independencia (Plaza Grande)',
     lat: -0.22016,
     lng: -78.51214,
-    description: 'El corazón del Centro Histórico de Quito, rodeado por el Palacio de Carondelet.'
+    description: 'Centro historico de Quito, rodeado por el Palacio de Carondelet.'
   },
   {
     id: 'san_francisco',
     name: 'Iglesia de San Francisco',
     lat: -0.22055,
     lng: -78.51428,
-    description: 'Una de las estructuras religiosas coloniales más imponentes de América Latina.'
+    description: 'Estructura religiosa colonial representativa del Centro Historico.'
   },
   {
     id: 'basilica',
-    name: 'Basílica del Voto Nacional',
+    name: 'Basilica del Voto Nacional',
     lat: -0.21473,
     lng: -78.50731,
-    description: 'La basílica neogótica más grande del continente americano, famosa por sus gárgolas de fauna nacional.'
+    description: 'Basilica neogotica reconocida por sus gargolas de fauna nacional.'
   },
   {
     id: 'el_panecillo',
     name: 'Virgen de El Panecillo',
     lat: -0.23018,
     lng: -78.51855,
-    description: 'La estatua de aluminio de la Virgen alada que vigila la ciudad desde la colina de El Panecillo.'
+    description: 'Mirador patrimonial con la estatua de la Virgen alada de Quito.'
   },
   {
     id: 'la_ronda',
     name: 'Calle La Ronda',
     lat: -0.22485,
     lng: -78.51522,
-    description: 'Una estrecha y romántica calle peatonal empedrada, llena de arte, música y comida tradicional.'
+    description: 'Calle peatonal historica con arte, musica y gastronomia tradicional.'
   }
 ];
 
-// Haversine Formula for distance between two points in meters
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // Earth radius in meters
+  const R = 6371e3;
   const phi1 = (lat1 * Math.PI) / 180;
   const phi2 = (lat2 * Math.PI) / 180;
   const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
@@ -64,57 +62,102 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
       Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-  return R * c; // in meters
+  return R * c;
 }
 
-// Routes
+function parseCoordinate(value) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+function serializePoi(poi, distanceMeters) {
+  return {
+    poiId: poi.id,
+    name: poi.name,
+    description: poi.description,
+    distanceMeters: typeof distanceMeters === 'number' ? Number(distanceMeters.toFixed(2)) : undefined,
+    coordinates: {
+      lat: poi.lat,
+      lng: poi.lng
+    }
+  };
+}
+
 app.get('/pois', (req, res) => {
-  res.json({ success: true, pois: POIS });
+  res.json({ success: true, pois: POIS.map(poi => serializePoi(poi)) });
+});
+
+app.get('/pois/nearby', (req, res) => {
+  const lat = parseCoordinate(req.query.lat);
+  const lng = parseCoordinate(req.query.lng);
+  const radius = parseCoordinate(req.query.radius) || 1000;
+
+  if (lat === null || lng === null || radius <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Los parametros lat, lng y radius deben ser coordenadas validas.'
+    });
+  }
+
+  const pois = POIS
+    .map((poi) => ({
+      poi,
+      distance: getDistanceMeters(lat, lng, poi.lat, poi.lng)
+    }))
+    .filter(({ distance }) => distance <= radius)
+    .sort((a, b) => a.distance - b.distance)
+    .map(({ poi, distance }) => serializePoi(poi, distance));
+
+  return res.json({ success: true, pois });
 });
 
 app.post('/check-in', async (req, res) => {
   try {
-    const { poiId, userLocation, userId } = req.body;
+    const { poiId, userLocation } = req.body;
+    const userId = req.headers['x-user-id'] || req.body.userId;
+
     if (!poiId || !userLocation || !userId) {
-      return res.status(400).json({ success: false, message: 'Faltan parámetros de check-in.' });
+      return res.status(400).json({ success: false, message: 'Faltan parametros de check-in.' });
+    }
+
+    const userLat = parseCoordinate(userLocation.lat);
+    const userLng = parseCoordinate(userLocation.lng);
+    if (userLat === null || userLng === null) {
+      return res.status(400).json({ success: false, message: 'La ubicacion del usuario no es valida.' });
     }
 
     const poi = POIS.find(p => p.id === poiId);
     if (!poi) {
-      return res.status(404).json({ success: false, message: 'Punto de interés no registrado.' });
+      return res.status(404).json({ success: false, message: 'Punto de interes no registrado.' });
     }
 
-    const distance = getDistanceMeters(
-      userLocation.lat,
-      userLocation.lng,
-      poi.lat,
-      poi.lng
-    );
-
-    // Geofencing limit: 50 meters
+    const distance = getDistanceMeters(userLat, userLng, poi.lat, poi.lng);
     const isVerified = distance <= 50;
 
     if (!isVerified) {
       return res.status(400).json({
         success: false,
         verified: false,
-        message: `Ubicación demasiado lejana del checkpoint. Estás a ${Math.round(distance)}m (Máximo permitido: 50m).`
+        distance: Math.round(distance),
+        message: `Ubicacion demasiado lejana del checkpoint. Estas a ${Math.round(distance)}m. Maximo permitido: 50m.`
       });
     }
 
-    // Publish POI_VISITED to event bus
+    const timestamp = new Date().toISOString();
+    await eventBusReady;
     await eventBus.publish('POI_VISITED', {
       userId,
       poiId,
       poiName: poi.name,
-      timestamp: new Date().toISOString()
+      timestamp
     });
 
     return res.json({
       success: true,
       verified: true,
       distance: Math.round(distance),
-      message: `¡Check-in verificado! Has visitado '${poi.name}'`
+      message: `Ubicacion verificada. Has ingresado al checkpoint de ${poi.name}.`,
+      timestamp
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -127,5 +170,5 @@ app.get('/health', (req, res) => {
 
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {
-  console.log(`[GeoService] Ejecutándose en el puerto http://localhost:${PORT}`);
+  console.log(`[GeoService] Ejecutandose en el puerto http://localhost:${PORT}`);
 });

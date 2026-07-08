@@ -5,7 +5,7 @@ const userRepository = require('../repositories/userRepository');
 const { EventBus } = require('common');
 
 const eventBus = new EventBus('auth-service');
-eventBus.connect();
+const eventBusReady = eventBus.connect();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'quitoquest_super_secret_key_2026';
 
@@ -31,6 +31,7 @@ class AuthService {
     await userRepository.create(newUser);
 
     // Broadcast EVENT: USER_CREATED to configure profile and progress
+    await eventBusReady;
     await eventBus.publish('USER_CREATED', {
       userId: newUser.id,
       username: newUser.username,
@@ -57,8 +58,11 @@ class AuthService {
       { expiresIn: '2h' }
     );
 
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+
     return {
       accessToken: token,
+      refreshToken,
       user: {
         id: user.id,
         username: user.username,

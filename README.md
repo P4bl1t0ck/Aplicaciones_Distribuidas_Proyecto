@@ -9,10 +9,10 @@
 | Nombre | Rol |
 |--------|-----|
 | Montalvo Pablo | Arquitectura & Backend Lead |
-| Saa Patricio | Microservicios & Infraestructura |
+| Saa Patricio | Arquitectura & Backend Lead |
 | Moreta Carlos | Frontend & UX |
-| Cevallos Josué | Base de Datos & APIs |
-| Cahueñas Alexander | DevOps & Testing |
+| Cevallos Josué | Frontend & UX |
+| Cahueñas Alexander | Arquitectura & Backend Lead |
 
 **Materia:** Aplicaciones y Sistemas Distribuidos  
 **Docente:** Hugo Fernando Chimbo Acosta  

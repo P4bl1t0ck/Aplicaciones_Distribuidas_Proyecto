@@ -10,43 +10,68 @@ class EventBus {
     this.amqpChannel = null;
     this.socket = null;
     this.exchangeName = 'quitoquest.events';
+    this.connectPromise = null;
   }
 
   async connect() {
-    const amqpUrl = process.env.RABBITMQ_URL;
-    if (amqpUrl) {
-      try {
-        console.log(`[EventBus - ${this.serviceName}] Intentando conectar a RabbitMQ: ${amqpUrl}`);
-        this.amqpConn = await amqp.connect(amqpUrl);
-        this.amqpChannel = await this.amqpConn.createChannel();
-        await this.amqpChannel.assertExchange(this.exchangeName, 'topic', { durable: true });
-        this.mode = 'rabbitmq';
-        console.log(`[EventBus - ${this.serviceName}] Conectado a RabbitMQ exitosamente.`);
-        return;
-      } catch (err) {
-        console.warn(`[EventBus - ${this.serviceName}] Error conectando a RabbitMQ: ${err.message}. Cayendo en modo Mock Broker.`);
-      }
+    if (this.connectPromise) {
+      return this.connectPromise;
     }
 
-    // Fallback: Mock socket broker
-    const brokerUrl = process.env.BROKER_URL || 'http://localhost:5000';
-    console.log(`[EventBus - ${this.serviceName}] Conectando a Mock Broker WebSocket: ${brokerUrl}`);
-    
-    this.socket = io(brokerUrl, {
-      transports: ['websocket'],
-      autoConnect: true,
-      query: { serviceName: this.serviceName }
+    this.connectPromise = new Promise(async (resolve) => {
+      const amqpUrl = process.env.RABBITMQ_URL;
+      if (amqpUrl) {
+        try {
+          console.log(`[EventBus - ${this.serviceName}] Intentando conectar a RabbitMQ: ${amqpUrl}`);
+          this.amqpConn = await amqp.connect(amqpUrl);
+          this.amqpChannel = await this.amqpConn.createChannel();
+          await this.amqpChannel.assertExchange(this.exchangeName, 'topic', { durable: true });
+          this.mode = 'rabbitmq';
+          console.log(`[EventBus - ${this.serviceName}] Conectado a RabbitMQ exitosamente.`);
+          resolve();
+          return;
+        } catch (err) {
+          console.warn(`[EventBus - ${this.serviceName}] Error conectando a RabbitMQ: ${err.message}. Cayendo en modo Mock Broker.`);
+        }
+      }
+
+      const brokerUrl = process.env.BROKER_URL || 'http://localhost:5010';
+      console.log(`[EventBus - ${this.serviceName}] Conectando a Mock Broker WebSocket: ${brokerUrl}`);
+
+      this.socket = io(brokerUrl, {
+        transports: ['websocket'],
+        autoConnect: true,
+        query: { serviceName: this.serviceName }
+      });
+
+      const finalizeConnection = () => {
+        clearTimeout(connectionTimeout);
+        resolve();
+      };
+
+      this.socket.on('connect', () => {
+        console.log(`[EventBus - ${this.serviceName}] Conectado al Mock Broker WebSocket.`);
+        finalizeConnection();
+      });
+
+      this.socket.on('connect_error', () => {
+        // Keep waiting briefly; the broker may still become available.
+      });
+
+      const connectionTimeout = setTimeout(() => {
+        if (this.socket && this.socket.connected) {
+          finalizeConnection();
+          return;
+        }
+
+        console.warn(`[EventBus - ${this.serviceName}] Timeout esperando al Mock Broker. Se continuará con eventos locales.`);
+        finalizeConnection();
+      }, 3000);
+
+      this.mode = 'mock';
     });
 
-    this.socket.on('connect', () => {
-      console.log(`[EventBus - ${this.serviceName}] Conectado al Mock Broker WebSocket.`);
-    });
-
-    this.socket.on('connect_error', (err) => {
-      // Quiet fail to avoid logging noise
-    });
-
-    this.mode = 'mock';
+    return this.connectPromise;
   }
 
   async publish(routingKey, payload) {

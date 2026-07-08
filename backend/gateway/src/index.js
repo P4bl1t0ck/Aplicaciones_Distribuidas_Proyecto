@@ -26,6 +26,12 @@ const authenticateGateway = (req, res, next) => {
   if (req.path.startsWith('/api/v1/auth')) {
     return next();
   }
+  if (req.method === 'GET' && req.path.startsWith('/api/v1/geo/pois')) {
+    return next();
+  }
+  if (req.method === 'GET' && req.path === '/api/v1/gamification/leaderboard') {
+    return next();
+  }
 
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -73,8 +79,7 @@ app.use('/api/v1/users', proxy(SERVICES.user, {
 }));
 
 app.use('/api/v1/geo', proxy(SERVICES.geo, {
-  proxyReqOptDecorator: (proxyReqOpts, srcReq) => {
-    // Automatically inject userId to body if check-in request has none
+  proxyReqOptDecorator: (proxyReqOpts) => {
     return proxyReqOpts;
   }
 }));
