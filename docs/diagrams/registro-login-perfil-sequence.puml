@@ -1,0 +1,55 @@
+@startuml
+title QuitoQuest - Registro, login y perfil hasta Sprint 2
+
+actor "Turista" as tourist
+participant "Cliente HTTP\n(Postman/Panel)" as client
+participant "API Gateway\n:8000" as gateway
+participant "Auth Service\n:3001" as auth
+database "users.json" as usersjson
+queue "EventBus\nRabbitMQ o Broker Mock" as eventbus
+participant "User Service\n:3002" as user
+database "profiles.json" as profilesjson
+
+tourist -> client : Ingresa username, email, password
+client -> gateway : POST /api/v1/auth/register
+gateway -> auth : POST /register
+auth -> usersjson : findByEmail(email)
+alt email disponible
+  auth -> usersjson : create(usuario con passwordHash)
+  auth -> eventbus : publish USER_CREATED
+  eventbus -> user : subscribe USER_CREATED
+  user -> profilesjson : createOrUpdate(perfil por defecto)
+  auth --> gateway : 201 success, userId
+  gateway --> client : 201 usuario registrado
+else email duplicado
+  auth --> gateway : 400 correo ya registrado
+  gateway --> client : 400 error
+end
+
+tourist -> client : Ingresa email y password
+client -> gateway : POST /api/v1/auth/login
+gateway -> auth : POST /login
+auth -> usersjson : findByEmail(email)
+auth -> auth : bcrypt.compare(password)
+alt credenciales validas
+  auth -> auth : jwt.sign(userId, username, role)
+  auth --> gateway : accessToken, refreshToken, user
+  gateway --> client : 200 login correcto
+else credenciales incorrectas
+  auth --> gateway : 400 credenciales incorrectas
+  gateway --> client : 400 error
+end
+
+client -> gateway : GET /api/v1/users/profile/me\nAuthorization: Bearer JWT
+gateway -> gateway : verify JWT
+gateway -> user : GET /profile/me\nx-user-id
+user -> profilesjson : findByUserId(userId)
+alt perfil existe
+  user --> gateway : profile
+else perfil no existe
+  user -> profilesjson : createOrUpdate(default)
+  user --> gateway : profile creado
+end
+gateway --> client : 200 perfil
+
+@enduml

@@ -1,0 +1,32 @@
+@startuml
+title QuitoQuest - Flujo EventBus comprobado hasta Sprint 2
+left to right direction
+skinparam componentStyle rectangle
+
+component "Auth Service" as auth
+component "Geo Service" as geo
+component "EventBus\nbackend/common/eventBus.js" as eventbus
+queue "RabbitMQ exchange topic\nquitoquest.events" as exchange
+queue "auth/user queues\n<service>.<routingKey>" as queues
+component "Broker Mock Socket.IO\nbroker-service:5010" as broker
+component "User Service" as user
+component "Consumidores posteriores\n(gamification/analytics)" as future
+
+auth --> eventbus : publish('USER_CREATED')
+geo --> eventbus : publish('POI_VISITED')
+
+eventbus --> exchange : modo RabbitMQ\npublish routingKey
+exchange --> queues : bindQueue(service.routingKey)
+queues --> user : consume USER_CREATED
+queues --> future : consume POI_VISITED\nsi estan activos
+
+eventbus --> broker : modo local\nsocket.emit('publish')
+broker --> user : socket event USER_CREATED
+broker --> future : socket event POI_VISITED\nsi se suscriben
+
+note bottom of eventbus
+  El modo se decide por RABBITMQ_URL.
+  Si RabbitMQ falla, cae al Broker Mock.
+end note
+
+@enduml

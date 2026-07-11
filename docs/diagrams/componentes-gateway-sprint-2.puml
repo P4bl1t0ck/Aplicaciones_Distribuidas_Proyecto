@@ -1,0 +1,43 @@
+@startuml
+title QuitoQuest - Componentes del Gateway y servicios Sprint 2
+left to right direction
+skinparam componentStyle rectangle
+
+actor "Cliente HTTP" as client
+
+component "API Gateway\nExpress + express-http-proxy" as gateway {
+  component "CORS middleware" as cors
+  component "authenticateGateway(req)" as authmw
+  component "JWT verify\njsonwebtoken" as jwt
+  component "Proxy /api/v1/auth" as proxyauth
+  component "Proxy /api/v1/users" as proxyuser
+  component "Proxy /api/v1/geo" as proxygeo
+}
+
+component "Auth Service\nregister/login" as auth
+component "User Service\nprofile/me" as user
+component "Geo Service\npois/check-in" as geo
+component "EventBus\ncommon/eventBus.js" as eventbus
+database "users.json" as usersjson
+database "profiles.json" as profilesjson
+
+client --> gateway : HTTP REST
+gateway --> cors
+gateway --> authmw : rutas protegidas
+authmw --> jwt : valida Bearer token
+authmw --> gateway : inyecta x-user-id\nx-user-role x-user-name
+
+gateway --> proxyauth
+gateway --> proxyuser
+gateway --> proxygeo
+proxyauth --> auth : /register /login
+proxyuser --> user : /profile/me /profile/:userId
+proxygeo --> geo : /pois /pois/nearby /check-in
+
+auth --> usersjson : lee/escribe usuario
+user --> profilesjson : lee/escribe perfil
+auth --> eventbus : USER_CREATED
+user --> eventbus : subscribe USER_CREATED
+geo --> eventbus : POI_VISITED
+
+@enduml

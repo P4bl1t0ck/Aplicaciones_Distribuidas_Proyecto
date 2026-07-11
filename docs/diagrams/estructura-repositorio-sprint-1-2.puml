@@ -1,0 +1,34 @@
+@startuml
+title QuitoQuest - Estructura del repositorio hasta Sprint 2
+left to right direction
+skinparam componentStyle rectangle
+
+package "quitoquest-monorepo" as root {
+  folder "admin-panel\nReact + Vite" as admin
+  folder "backend" as backend {
+    folder "common\nEventBus compartido" as common
+    folder "gateway\nAPI Gateway Express" as gateway
+    folder "services" as services {
+      folder "auth-service" as auth
+      folder "user-service" as user
+      folder "geo-service" as geo
+      folder "broker-service" as broker
+      folder "otros servicios\nskeleton/avance posterior" as others
+    }
+  }
+  file "docker-compose.yml" as compose
+  file "package.json\nNPM Workspaces" as pkg
+  folder "docs\nmemoria tecnica" as docs
+  folder "docs/diagrams\nPlantUML propuesto" as diagrams
+}
+
+pkg --> admin : workspace
+pkg --> common : workspace
+pkg --> gateway : workspace
+pkg --> services : workspace
+compose --> gateway : build Docker
+compose --> services : build Docker
+compose --> common : dependencia compartida
+docs --> diagrams : diagramas renderizables
+
+@enduml

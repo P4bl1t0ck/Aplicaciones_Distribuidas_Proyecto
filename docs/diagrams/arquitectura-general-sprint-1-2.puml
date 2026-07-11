@@ -1,0 +1,51 @@
+@startuml
+title QuitoQuest - Arquitectura general implementada hasta Sprint 2
+left to right direction
+skinparam componentStyle rectangle
+
+actor "Turista / Evaluador" as tourist
+component "Panel administrativo React\n(admin-panel)" as admin
+component "API Gateway\n(backend/gateway)" as gateway
+
+package "Microservicios Node.js\n(backend/services)" {
+  component "Auth Service\n(auth-service)" as auth
+  component "User Service\n(user-service)" as user
+  component "Geo Service\n(geo-service)" as geo
+  component "Broker Mock WebSocket\n(broker-service)" as broker
+  component "Otros servicios dockerizados\n(events, gamification,\nreward, notification,\nrecommendation, analytics)" as other
+}
+
+package "Paquete compartido\n(backend/common)" {
+  component "EventBus\n(eventBus.js)" as eventbus
+}
+
+database "JSON local\nbackend/.local_db/users.json" as usersjson
+database "JSON local\nbackend/.local_db/profiles.json" as profilesjson
+database "PostgreSQL container\n(configurado en docker-compose)" as postgres
+database "MongoDB container\n(configurado en docker-compose)" as mongo
+database "Redis container\n(configurado en docker-compose)" as redis
+queue "RabbitMQ\nquitoquest.events" as rabbit
+
+tourist --> gateway : HTTP REST\n/api/v1/*
+admin --> gateway : HTTP REST\nlocalhost:8000
+gateway --> auth : REST\n/register /login
+gateway --> user : REST\n/profile/me
+gateway --> geo : REST\n/pois /check-in
+gateway --> other : REST proxy\nrutas registradas
+
+auth --> usersjson : persistencia local\nusuarios + passwordHash
+user --> profilesjson : persistencia local\nperfil + intereses
+geo --> geo : POIs en memoria\nHaversine
+
+auth --> eventbus : publish USER_CREATED
+geo --> eventbus : publish POI_VISITED
+user --> eventbus : subscribe USER_CREATED
+eventbus --> rabbit : modo Docker\nAMQP topic exchange
+eventbus --> broker : modo local\nSocket.IO
+
+auth ..> postgres : variable DATABASE_URL\npendiente de uso real
+user ..> postgres : variable DATABASE_URL\npendiente de uso real
+geo ..> redis : variable REDIS_URL\npendiente de uso real
+other ..> mongo : configuracion Docker\nsegun servicio
+
+@enduml

@@ -1,0 +1,30 @@
+@startuml
+title QuitoQuest - Check-in geolocalizado hasta Sprint 2
+
+actor "Turista" as tourist
+participant "Cliente HTTP\n(Postman/Panel)" as client
+participant "API Gateway\n:8000" as gateway
+participant "Geo Service\n:3003" as geo
+queue "EventBus\nRabbitMQ o Broker Mock" as eventbus
+participant "Consumidores futuros\nGamification/Analytics" as consumers
+
+tourist -> client : Selecciona POI y envia ubicacion GPS
+client -> gateway : POST /api/v1/geo/check-in\nAuthorization: Bearer JWT
+gateway -> gateway : verify JWT
+gateway -> geo : POST /check-in\nx-user-id + body
+geo -> geo : validar poiId y coordenadas
+geo -> geo : calcular distancia Haversine\ncontra POIs en memoria
+
+alt distancia <= 50m
+  geo -> eventbus : publish POI_VISITED\nuserId, poiId, poiName, timestamp
+  eventbus -> consumers : entrega eventual si estan suscritos
+  geo --> gateway : 200 verified=true, distance, timestamp
+  gateway --> client : Check-in verificado
+else distancia > 50m
+  geo --> gateway : 400 verified=false, distance
+  gateway --> client : Ubicacion demasiado lejana
+else token faltante o invalido
+  gateway --> client : 401/403 error JWT
+end
+
+@enduml

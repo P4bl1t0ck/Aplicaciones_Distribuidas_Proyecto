@@ -1,0 +1,44 @@
+@startuml
+title QuitoQuest - Despliegue Docker Compose hasta Sprint 2
+left to right direction
+skinparam componentStyle rectangle
+
+node "Host Windows" as host {
+  node "Docker Compose\nred: quitoquest-network" as compose {
+    node "Infraestructura" {
+      database "PostgreSQL\nquitoquest-postgres\n5432:5432\nvol: postgres_data" as postgres
+      database "MongoDB\nquitoquest-mongodb\n27017:27017\nvol: mongo_data" as mongo
+      database "Redis\nquitoquest-redis\n6379:6379\nvol: redis_data" as redis
+      queue "RabbitMQ\nquitoquest-rabbitmq\n5672:5672\n15672:15672" as rabbit
+    }
+
+    node "Backend" {
+      component "Broker Service\nquitoquest-broker\n5000:5000" as broker
+      component "Auth Service\nquitoquest-auth\n3001:3001" as auth
+      component "User Service\nquitoquest-user\n3002:3002" as user
+      component "Geo Service\nquitoquest-geo\n3003:3003" as geo
+      component "API Gateway\nquitoquest-gateway\n8000:8000" as gateway
+      component "Servicios registrados\n3004-3009" as restservices
+    }
+  }
+
+  node "Proceso local Vite" as vite {
+    component "Admin Panel React\nlocalhost:5173" as admin
+  }
+}
+
+admin --> gateway : HTTP REST
+gateway --> auth : AUTH_SERVICE_URL
+gateway --> user : USER_SERVICE_URL
+gateway --> geo : GEO_SERVICE_URL
+gateway --> restservices : *_SERVICE_URL
+
+auth --> postgres : DATABASE_URL
+user --> postgres : DATABASE_URL
+geo --> redis : REDIS_URL
+auth --> rabbit : RABBITMQ_URL
+user --> rabbit : RABBITMQ_URL
+geo --> rabbit : RABBITMQ_URL
+restservices --> rabbit : RABBITMQ_URL
+
+@enduml

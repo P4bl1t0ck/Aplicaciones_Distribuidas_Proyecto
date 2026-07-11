@@ -1,0 +1,44 @@
+@startuml
+title QuitoQuest - Comunicacion distribuida real hasta Sprint 2
+left to right direction
+skinparam componentStyle rectangle
+
+legend right
+  --> REST sincronico
+  ..> Evento asincronico
+  ==> Persistencia / cache configurada
+endlegend
+
+actor "Cliente" as client
+component "API Gateway" as gateway
+component "Auth Service" as auth
+component "User Service" as user
+component "Geo Service" as geo
+component "EventBus compartido" as eventbus
+queue "RabbitMQ\nexchange quitoquest.events" as rabbit
+component "Broker Mock Socket.IO\npuerto 5010 local" as broker
+database "users.json" as usersjson
+database "profiles.json" as profilesjson
+database "POIs en memoria" as pois
+database "PostgreSQL / Redis / MongoDB\ncontenedores configurados" as infra
+
+client --> gateway : HTTP REST
+gateway --> auth : /api/v1/auth/*
+gateway --> user : /api/v1/users/*
+gateway --> geo : /api/v1/geo/*
+
+auth ==> usersjson : usuarios
+user ==> profilesjson : perfiles
+geo ==> pois : checkpoints
+
+auth ..> eventbus : USER_CREATED
+geo ..> eventbus : POI_VISITED
+user ..> eventbus : consume USER_CREATED
+eventbus ..> rabbit : AMQP si RABBITMQ_URL existe
+eventbus ..> broker : Socket.IO fallback local
+
+auth ==> infra : DATABASE_URL configurado\nno usado por repositorio actual
+user ==> infra : DATABASE_URL configurado\nno usado por repositorio actual
+geo ==> infra : REDIS_URL configurado\nno usado por POIs actuales
+
+@enduml
